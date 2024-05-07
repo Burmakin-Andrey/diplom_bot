@@ -1,27 +1,39 @@
 import sqlite3
 
+import xml.etree.ElementTree as ET
+
 db = sqlite3.connect('bot.db')
 cur = db.cursor()
 
 
 async def db_start():
-    cur.execute("CREATE TABLE IF NOT EXISTS photo ( id INTEGER PRIMARY KEY, photo BLOB NOT NULL)")
-    cur.execute("CREATE TABLE IF NOT EXISTS questions ( id INTEGER PRIMARY KEY, text TEXT NOT NULL, answers TEXT NOT NULL, photoid INTEGER, FOREIGN KEY (photoid) REFERENCES photo(id))")
-    cur.execute("CREATE TABLE IF NOT EXISTS answers (id INTEGER PRIMARY KEY, user_id INTEGER, q_id INTEGER, answer TEXT, FOREIGN KEY (q_id) REFERENCES questions(id), FOREIGN KEY (user_id) REFERENCES users(id))")
-    cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, tg_id INTEGER)")
+    cur.execute('''CREATE TABLE IF NOT EXISTS photo ( id INTEGER PRIMARY KEY, file_name TEXT NOT NULL)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS questions ( id INTEGER PRIMARY KEY, text TEXT NOT NULL, answers TEXT NOT NULL, photoid INTEGER, FOREIGN KEY (photoid) REFERENCES photo(id))''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS answers (id INTEGER PRIMARY KEY, user_id INTEGER, q_id INTEGER, answer TEXT, FOREIGN KEY (q_id) REFERENCES questions(id), FOREIGN KEY (user_id) REFERENCES users(id))''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, tg_id INTEGER)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS password (id INTEGER PRIMARY KEY, user_pas TEXT)''')
+    cur.execute('''INSERT OR IGNORE INTO password (id, user_pas) VALUES (1, 'user')''')
     print("db start")
     db.commit()
 
 
-async def check_user(id: int):
+async def check_user(id: int, valid=False):
     user = cur.execute(f"SELECT * FROM users WHERE tg_id=={id}").fetchone()
-    if not user:
+    if user:
+        return True
+    if not user and valid:
         cur.execute(f"INSERT INTO users(tg_id) VALUES({id})")
         db.commit()
+        return True
+    return False
 
 
-async def set_answers(user_id, q_id, answer):
-    cur.execute(f"INSERT INTO answers(user_id, q_id, answer) VALUES({user_id}, {q_id}, '{answer}')")
+async def set_answers(user_id, q_id, answers):
+    answers_list = ""
+    for answer in answers:
+        answers_list += f"{answer},"
+    answers_list = answers_list[:-1]
+    cur.execute(f"INSERT INTO answers(user_id, q_id, answer) VALUES({user_id}, {q_id}, '{answers_list}')")
     db.commit()
 
 
@@ -30,12 +42,15 @@ async def set_questions(text, answers, photoid):
     db.commit()
 
 
-async def set_photo(photo):
-    with open(photo, "rb") as ph:
-        binar_photo = ph.read()
-        cur.execute("INSERT INTO photo(photo) VALUES(?)", (binar_photo,))
-        db.commit()
-        ph.close()
+async def set_photo(file_name):
+    cur.execute(f"INSERT INTO photo(file_name) VALUES('{file_name}')")
+    db.commit()
+    return cur.lastrowid
+
+
+async def set_password(pas):
+    cur.execute(f'UPDATE password set user_pas=(?) WHERE id=1', (pas,))
+    db.commit()
 
 
 async def get_question(id):
@@ -53,8 +68,16 @@ async def get_answer(id):
 
 
 async def get_photo(id):
-    photo_data = cur.execute(f"SELECT photo FROM photo WHERE id={id}").fetchone()
-    return photo_data
+    file = cur.execute(f"SELECT file_name FROM photo WHERE id={id}").fetchone()
+    print(file)
+    with open(f'img/{file[0]}', "rb") as photo:
+        photo_data = photo
+        return photo.read()
+
+
+async def get_password():
+    pas = cur.execute(f"SELECT user_pas FROM password WHERE id=1").fetchone()
+    return pas[0]
 
 
 async def questions_count():
@@ -62,8 +85,18 @@ async def questions_count():
     return count.fetchone()[0]
 
 
-async def test_data():
-    await set_photo("cat1.jpg")
-    await set_photo("car1.jpg")
-    await set_questions("Это кот или собака?", "Кот,Собака", 1)
-    await set_questions("Это машина или самолет?", "Машина,Самолет", 2)
+async def delete_users():
+    cur.execute(f"DELETE FROM users")
+    db.commit()
+
+
+async def fill_db_from_xml(xml_file):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+    for question in root:
+        text = question.find('text').text
+        answers = question.find('answers').text
+        image_file = question.find('image_file').text
+        photoid = await set_photo(image_file)
+        await set_questions(text, answers, photoid)
+    db.commit()

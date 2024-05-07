@@ -1,11 +1,14 @@
+<<<<<<< HEAD
+from aiogram import executor
+from db import datdbase as db
+from loader import dp
+=======
 from aiogram import executor, types
 
 from db import datdbase as db
 from loader import dp, bot
+>>>>>>> e94a3993aea735aa28e21d081036297e4055ab14
 from utils.set_bot_commands import set_default_commands
-
-q_num = 1
-q_count = 0
 
 
 async def on_startup(dispatcher):

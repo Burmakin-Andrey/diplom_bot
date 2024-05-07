@@ -1,0 +1,12 @@
+<questions>
+  <question number="1">
+    <text>На изображении кошка или собака?</text>
+    <image_file>Cat1.jpg</image_file>
+    <answers>Кошка,Собака</answers>
+  </question>
+  <question number="2">
+    <text>Что вы видите на изображении?</text>
+    <image_file>Car1.jpg</image_file>
+    <answers>Машина,Самолет,Человек,Мотоцикл,Дерево</answers>
+  </question>
+</questions>
