@@ -10,19 +10,20 @@ async def db_start():
     cur.execute('''CREATE TABLE IF NOT EXISTS photo ( id INTEGER PRIMARY KEY, file_name TEXT NOT NULL)''')
     cur.execute('''CREATE TABLE IF NOT EXISTS questions ( id INTEGER PRIMARY KEY, text TEXT NOT NULL, answers TEXT NOT NULL, photoid INTEGER, FOREIGN KEY (photoid) REFERENCES photo(id))''')
     cur.execute('''CREATE TABLE IF NOT EXISTS answers (id INTEGER PRIMARY KEY, user_id INTEGER, q_id INTEGER, answer TEXT, FOREIGN KEY (q_id) REFERENCES questions(id), FOREIGN KEY (user_id) REFERENCES users(id))''')
-    cur.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, tg_id INTEGER)''')
+    cur.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, tg_id INTEGER, name TEXT)''')
     cur.execute('''CREATE TABLE IF NOT EXISTS password (id INTEGER PRIMARY KEY, user_pas TEXT)''')
     cur.execute('''INSERT OR IGNORE INTO password (id, user_pas) VALUES (1, 'user')''')
     print("db start")
     db.commit()
 
 
-async def check_user(id: int, valid=False):
+async def check_user(id: int, user_name="", valid=False):
+    print(f'Name in bd:{user_name}')
     user = cur.execute(f"SELECT * FROM users WHERE tg_id=={id}").fetchone()
     if user:
         return True
     if not user and valid:
-        cur.execute(f"INSERT INTO users(tg_id) VALUES({id})")
+        cur.execute(f"INSERT INTO users(tg_id, name) VALUES({id}, '{user_name}')")
         db.commit()
         return True
     return False
@@ -85,9 +86,25 @@ async def questions_count():
     return count.fetchone()[0]
 
 
+async def get_passed_users():
+    users = cur.execute(f"SELECT DISTINCT user_id FROM answers;").fetchall()
+    print(users)
+    print(users[0][0])
+    return len(users), users
+
+
+async def get_user_name(tg_id):
+    name = cur.execute(f"SELECT name FROM users WHERE tg_id={tg_id};").fetchone()
+    return name[0]
+
+
 async def delete_users():
     cur.execute(f"DELETE FROM users")
     db.commit()
+
+async def get_users_answers(question_id):
+    data = cur.execute(f'SELECT answer FROM answers WHERE q_id = {question_id}').fetchall()
+    return data
 
 
 async def fill_db_from_xml(xml_file):
