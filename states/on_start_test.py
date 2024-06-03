@@ -8,4 +8,5 @@ class UserStates(StatesGroup):
     WaitAdminPassword = State()
     WaitConfig = State()
     WaitNewUserPassword = State()
+    WaitResults = State()
     AdminSettings = State()
